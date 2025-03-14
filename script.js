@@ -76,6 +76,7 @@
         // can I just do this?
         console.log("Freeing inline completions");
         return;
+        // yes i can!
       } 
       // Called when an editor is added
       addEditor(editor) {
