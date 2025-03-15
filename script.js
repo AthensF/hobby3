@@ -32,7 +32,7 @@
     };
   
     // Class that provides ghost text completions
-    class GhostTextProvider {
+    class MonacoCompletionProvider {
       sessionId = this.generateSessionId();
     //   promiseMap = new Map();
       constructor(extensionId) {
@@ -46,7 +46,8 @@
         }
         
         // Send a test message
-        this.sendTestMessage();
+        this.sendTestMessage("foo");
+        this.sendTestMessage("bar");
       }
       
       // Generate a unique session ID - note that this does not exist in the ref files
@@ -75,10 +76,11 @@
       }
       
       // Send a test message to the service worker
-      sendTestMessage() {
+      sendTestMessage(content) {
         const message = {
           kind: "test",
-          content: "foobar"
+          content: content,
+          sessionId: this.sessionId          
         };
         console.log("Sending test message to service worker");
         this.port.postMessage(message);
@@ -138,6 +140,7 @@
     // Class that provides Comple
   
     // Patch the Monaco environment to add our ghost text provider
+    // see setupMonacoEnvironment in script-learn
     Object.defineProperties(window, {
       monaco: {
         get() {
@@ -148,7 +151,7 @@
           this._ghostText_monaco = monacoInstance;
           
           // Create our ghost text provider
-          const ghostTextProvider = new GhostTextProvider(extensionId);
+          const ghostTextProvider = new MonacoCompletionProvider(extensionId);
           
           // Register the provider with Monaco
           if (monacoInstance?.languages?.registerInlineCompletionsProvider) {
@@ -180,3 +183,4 @@
       }
     });
   })();
+

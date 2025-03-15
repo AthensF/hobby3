@@ -31,12 +31,12 @@ chrome.runtime.onConnectExternal.addListener((port) => {
     
     // Handle test messages
     if (message.kind === "test") {
-      console.log("Received foobar:", message.content);
+      console.log("Received foobar:", message.content, " sessionId: ", message.sessionId);
       
       // Send a response back if needed
       port.postMessage({
         kind: "test_response",
-        content: "Received your message: " + message.content
+        content: "Acknowledging your message: " + message.content + " sessionId: " + message.sessionId
       });
     }
   });

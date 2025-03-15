@@ -371,20 +371,21 @@
             await this.client.acceptedLastCompletion(this.getIdeInfo(), e)
         }
     }
-    const EE = new URLSearchParams(document.currentScript.src.split("?")[1]).get("id");
+    // https://claude.ai/chat/e4c8a458-ec36-4b91-b1b4-8d7a0bc02dd6 for variable name recommendations - athensDOTfitzcheungATgmail
+    const extensionId = new URLSearchParams(document.currentScript.src.split("?")[1]).get("id");
     
     // Notify the extension that the script loaded successfully
-    chrome.runtime.sendMessage(EE, {
+    chrome.runtime.sendMessage(extensionId, {
         type: "success"
     });
-    const TE = new Map([
+    const mapUrlToPlatform = new Map([
             [/https:\/\/colab.research\.google\.com\/.*/, EditorPlatform.COLAB],
             [/https:\/\/(.*\.)?stackblitz\.com\/.*/, EditorPlatform.STACKBLITZ],
             [/https:\/\/(.*\.)?deepnote\.com\/.*/, EditorPlatform.DEEPNOTE],
             [/https:\/\/(.*\.)?(databricks\.com|azuredatabricks\.net)\/.*/, EditorPlatform.DATABRICKS],
             [/https:\/\/(.*\.)?quadratichq\.com\/.*/, EditorPlatform.QUADRATIC]
         ]),
-        fE = e => Object.defineProperties(window, {
+        setupMonacoEnvironment = e => Object.defineProperties(window, {
             MonacoEnvironment: {
                 get() {
                     return void 0 === this._codeium_MonacoEnvironment && (this._codeium_MonacoEnvironment = {
@@ -401,12 +402,12 @@
                 },
                 set(monacoInstance) {
                     let n = EditorPlatform.CUSTOM;
-                    for (const [e, t] of TE)
+                    for (const [e, t] of mapUrlToPlatform)
                         if (e.test(window.location.href)) {
                             n = t;
                             break
                         } this._ghostText_monaco = monacoInstance;
-                    const ghostTextProvider = new MonacoCompletionProvider(EE, n, e);
+                    const ghostTextProvider = new MonacoCompletionProvider(extensionId, n, e);
                     monacoInstance?.languages?.registerInlineCompletionsProvider && setTimeout((() => {
                         monacoInstance.languages.registerInlineCompletionsProvider({
                             pattern: "**"
@@ -425,25 +426,26 @@
                 }
             }
         });
-    let pE = !1;
-    const SE = (e, t) => {
+    let editorActivated = !1;
+    //========================= Jupyter relevent code from here =============
+    const setupJupyterLabIntegration = (e, t) => {
             const n = JSON.parse(e.innerText);
-            n.exposeAppInBrowser = !0, e.innerText = JSON.stringify(n), pE = !0, Object.defineProperty(window, "jupyterapp", {
+            n.exposeAppInBrowser = !0, e.innerText = JSON.stringify(n), editorActivated = !0, Object.defineProperty(window, "jupyterapp", {
                 get: function() {
                     return this._codeium_jupyterapp
                 },
                 set: function(e) {
                     if (e?.version.startsWith("3.")) {
-                        const n = iE(EE, e, t);
+                        const n = iE(extensionId, e, t);
                         e.registerPlugin(n), e.activatePlugin(n.id).then((() => {
                             console.log("Codeium: Activated JupyterLab 3.x")
                         }), (e => {
                             console.error(e)
                         }))
-                    } else e?.version.startsWith("4.") ? chrome.runtime.sendMessage(EE, {
+                    } else e?.version.startsWith("4.") ? chrome.runtime.sendMessage(extensionId, {
                         type: "error",
                         message: "Only JupyterLab 3.x is supported. Use the codeium-jupyter extension for JupyterLab 4"
-                    }) : chrome.runtime.sendMessage(EE, {
+                    }) : chrome.runtime.sendMessage(extensionId, {
                         type: "error",
                         message: `Codeium: Unexpected JupyterLab version: ${e?.version??"(unknown)"}. Only JupyterLab 3.x is supported`
                     });
@@ -455,7 +457,7 @@
                 },
                 set: function(e) {
                     if (e?.version.startsWith("2.")) {
-                        const n = iE(EE, e, t);
+                        const n = iE(extensionId, e, t);
                         e.registerPlugin(n), e.activatePlugin(n.id).then((() => {
                             console.log("Codeium: Activated JupyterLab 2.x")
                         }), (e => {
@@ -466,7 +468,7 @@
                 }
             })
         },
-        NE = [{
+        codeMirrorSites = [{
             name: "JSFiddle",
             pattern: /https?:\/\/(.*\.)?jsfiddle\.net(\/.*)?/,
             multiplayer: !1
@@ -479,20 +481,20 @@
             pattern: /https:\/\/(.*\.)?codeshare\.io(\/.*)?/,
             multiplayer: !0
         }],
-        gE = (e, t) => Object.defineProperty(window, "CodeMirror", {
+        setupCodeMirrorEnvironment = (e, t) => Object.defineProperty(window, "CodeMirror", {
             get: function() {
                 return this._codeium_CodeMirror
             },
             set: function(n) {
-                if (this._codeium_CodeMirror = n, !pE)
+                if (this._codeium_CodeMirror = n, !editorActivated)
                     if (n?.version?.startsWith("5."))
                         if (Object.prototype.hasOwnProperty.call(this, "Jupyter")) {
-                            if (pE = !0, void 0 === e) return void console.warn("Codeium: found no keybindings for Jupyter Notebook");
+                            if (editorActivated = !0, void 0 === e) return void console.warn("Codeium: found no keybindings for Jupyter Notebook");
                             {
                                 const r = function(e, t, n, r) {
                                     const a = new JupyterCodeCompletionIntegration(e, t, n);
                                     return a.patchCellKeyEvent(r), a.patchShortcutManagerHandler(), a
-                                }(EE, this.Jupyter, e, t);
+                                }(extensionId, this.Jupyter, e, t);
                                 ! function(e, t) {
                                     e.defineInitHook(t.clearCompletionInitHook())
                                 }(n, r.codeMirrorManager), console.log("Codeium: Activating Jupyter Notebook")
@@ -500,16 +502,16 @@
                         } else {
                             let e = !1,
                                 r = "";
-                            for (const t of NE)
+                            for (const t of codeMirrorSites)
                                 if (t.pattern.test(window.location.href)) {
-                                    r = t.name, pE = !0, e = t.multiplayer;
+                                    r = t.name, editorActivated = !0, e = t.multiplayer;
                                     break
-                                } pE && (new Zd(EE, n, e, t), console.log(`Codeium: Activating CodeMirror Site: ${r}`))
+                                } editorActivated && (new Zd(extensionId, n, e, t), console.log(`Codeium: Activating CodeMirror Site: ${r}`))
                         }
                 else console.warn("Codeium: Codeium doesn't support CodeMirror 6")
             }
         }),
-        IE = [{
+        websiteConfigurations = [{
             pattern: /https:\/\/console\.paperspace\.com\/.*\/notebook\/.*/,
             notebook: !0
         }, {
@@ -519,13 +521,13 @@
             pattern: /https:\/\/(.*\.)?github\.com(\/.*)?/,
             notebook: !1
         }],
-        CE = new Zd(EE, void 0, !1),
-        OE = CE.editorHook(),
-        yE = () => {
+        codeMirrorIntegration = new Zd(extensionId, void 0, !1),
+        editorHookFunction = codeMirrorIntegration.editorHook(),
+        scanForCodeMirrorEditors = () => {
             const e = setInterval((() => {
-                if (pE) return void clearInterval(e);
+                if (editorActivated) return void clearInterval(e);
                 let t = !1;
-                for (const e of IE)
+                for (const e of websiteConfigurations)
                     if (e.pattern.test(window.location.href)) {
                         t = e.notebook;
                         break
@@ -534,11 +536,11 @@
                     const r = e;
                     if (void 0 === r.CodeMirror) continue;
                     const a = r.CodeMirror;
-                    OE(a), t && n.set(a.getDoc(), e.getBoundingClientRect().top)
+                    editorHookFunction(a), t && n.set(a.getDoc(), e.getBoundingClientRect().top)
                 }
                 if (t) {
                     const e = [...n.entries()].sort(((e, t) => e[1] - t[1])).map((([e]) => e));
-                    CE.docs = e
+                    codeMirrorIntegration.docs = e
                 }
             }), 500)
         };
@@ -550,7 +552,7 @@
                 t(e)
             }))
         }))
-    }(EE), async function(e) {
+    }(extensionId), async function(e) {
         return await new Promise((t => {
             chrome.runtime.sendMessage(e, {
                 type: "debounce_ms"
@@ -558,7 +560,7 @@
                 t(e)
             }))
         }))
-    }(EE)]).then((([e, t]) => {
+    }(extensionId)]).then((([e, t]) => {
         const n = e.allowed,
             r = e.keyBindings,
             a = t.debounceMs,
@@ -567,8 +569,8 @@
             o = s?.getAttribute("content")?.split(",").map((e => e.toLowerCase().trim())).filter((e => i.includes(e))) ?? [];
         if (o.includes("none")) return;
         const m = document.getElementById("jupyter-config-data");
-        if (null === m) return o.includes("monaco") && fE(a), o.includes("codemirror5") && (gE(r, a), yE()), 0 === o.length && n ? (fE(a), gE(r, a), void yE()) : void 0;
-        SE(m, a)
+        if (null === m) return o.includes("monaco") && setupMonacoEnvironment(a), o.includes("codemirror5") && (setupCodeMirrorEnvironment(r, a), scanForCodeMirrorEditors()), 0 === o.length && n ? (setupMonacoEnvironment(a), setupCodeMirrorEnvironment(r, a), void scanForCodeMirrorEditors()) : void 0;
+        setupJupyterLabIntegration(m, a)
     }), (e => {
         console.error(e)
     }))
