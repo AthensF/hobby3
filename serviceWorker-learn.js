@@ -83,8 +83,9 @@
     }
     // ========== Important stuff, used for getCompletion down below
     class LanguageServerClient {
-        constructor(e, t) {
-            this.sessionId = t, this.client = (async () => {
+        constructor(e, sessionId) {
+            this.sessionId = sessionId; 
+            this.client = (async () => {
                 const t = await e;
                 if (void 0 !== t) return function(e) {
                     const t = ie({

@@ -33,16 +33,57 @@
   
     // Class that provides ghost text completions
     class GhostTextProvider {
+      sessionId = this.generateSessionId();
+    //   promiseMap = new Map();
       constructor(extensionId) {
         this.extensionId = extensionId;
-        this.modelUriToEditor = new Map();
+        this.port = this.createPort();
         
         // Detect which platform we're on
         this.editorPlatform = EditorPlatform.UNSPECIFIED;
         if (/https:\/\/colab.research\.google\.com\/.*/.test(window.location.href)) {
           this.editorPlatform = EditorPlatform.COLAB;
         }
-      }  
+        
+        // Send a test message
+        this.sendTestMessage();
+      }
+      
+      // Generate a unique session ID - note that this does not exist in the ref files
+      generateSessionId() {
+        return 'session_' + Math.random().toString(36).substring(2, 15);
+      }
+      
+      // STEP 1: Create a port connection to the service worker
+      createPort() {
+        const chromePort = chrome.runtime.connect(this.extensionId, {
+          name: this.sessionId
+        });
+        
+        // Handle port disconnection
+        chromePort.onDisconnect.addListener(() => {
+          console.log("Port disconnected, reconnecting...");
+          this.port = this.createPort();
+        });
+        // STEP 2: Service worker should receive message .....
+        // Handle messages from service worker
+        chromePort.onMessage.addListener((message) => {
+          console.log("Received message from service worker:", message);
+        });
+        
+        return chromePort;
+      }
+      
+      // Send a test message to the service worker
+      sendTestMessage() {
+        const message = {
+          kind: "test",
+          content: "foobar"
+        };
+        console.log("Sending test message to service worker");
+        this.port.postMessage(message);
+      }
+      
       // Provide inline completions for the editor
       async provideInlineCompletions(editor, cursorPosition) {
         // Get the current text in the editor
@@ -87,12 +128,14 @@
           }
         });
       }
-  
+      
       // Called when a completion is accepted
       async acceptedCompletion(completionId) {
         console.log(`Completion accepted: ${completionId}`);
       }
     }
+
+    // Class that provides Comple
   
     // Patch the Monaco environment to add our ghost text provider
     Object.defineProperties(window, {

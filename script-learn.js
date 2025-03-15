@@ -397,25 +397,29 @@
             },
             monaco: {
                 get() {
-                    return this._codeium_monaco
+                    return this._ghostText_monaco
                 },
-                set(t) {
+                set(monacoInstance) {
                     let n = EditorPlatform.CUSTOM;
                     for (const [e, t] of TE)
                         if (e.test(window.location.href)) {
                             n = t;
                             break
-                        } this._codeium_monaco = t;
-                    const r = new MonacoCompletionProvider(EE, n, e);
-                    t?.languages?.registerInlineCompletionsProvider && setTimeout((() => {
-                        t.languages.registerInlineCompletionsProvider({
+                        } this._ghostText_monaco = monacoInstance;
+                    const ghostTextProvider = new MonacoCompletionProvider(EE, n, e);
+                    monacoInstance?.languages?.registerInlineCompletionsProvider && setTimeout((() => {
+                        monacoInstance.languages.registerInlineCompletionsProvider({
                             pattern: "**"
-                        }, r), t.editor.registerCommand("codeium.acceptCompletion", ((e, t, n, a) => {
-                            a?.(), r.acceptedLastCompletion(n).catch((e => {
+                        }, ghostTextProvider);
+                        
+                        monacoInstance.editor.registerCommand("codeium.acceptCompletion", ((e, t, n, a) => {
+                            a?.(), ghostTextProvider.acceptedLastCompletion(n).catch((e => {
                                 console.error(e)
                             }))
-                        })), t.editor.onDidCreateEditor((e => {
-                            r.addEditor(e)
+                        }));
+                        
+                        monacoInstance.editor.onDidCreateEditor((e => {
+                            ghostTextProvider.addEditor(e)
                         })), console.log("Codeium: Activated Monaco")
                     }))
                 }
