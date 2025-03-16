@@ -14,7 +14,13 @@
       type: "success"
     });
   
-    // Class to represent a text range in the editor
+    // Define editor platforms
+    const EditorPlatform = {
+      UNSPECIFIED: "unspecified",
+      COLAB: "colab"
+    };
+
+    // Define text range class for editor positions
     class TextRange {
       constructor(startPos, endPos) {
         this.startLineNumber = startPos.lineNumber;
@@ -23,39 +29,24 @@
         this.endColumn = endPos.column;
       }
     }
-  
-    // Constants for editor platforms
-    const EditorPlatform = {
-      UNSPECIFIED: 0,
-      COLAB: 1,
-      CUSTOM: 2
-    };
-  
-    // Class that provides ghost text completions
-    class MonacoCompletionProvider {
+
+    // Class that handles communication with the service worker
+    class CompletionServiceClient {
       sessionId = this.generateSessionId();
-    //   promiseMap = new Map();
+      promiseMap = new Map();
+      requestId = 0;
+      
       constructor(extensionId) {
         this.extensionId = extensionId;
         this.port = this.createPort();
-        
-        // Detect which platform we're on
-        this.editorPlatform = EditorPlatform.UNSPECIFIED;
-        if (/https:\/\/colab.research\.google\.com\/.*/.test(window.location.href)) {
-          this.editorPlatform = EditorPlatform.COLAB;
-        }
-        
-        // Send a test message
-        this.sendTestMessage("foo");
-        this.sendTestMessage("bar");
       }
       
-      // Generate a unique session ID - note that this does not exist in the ref files
+      // Generate a unique session ID
       generateSessionId() {
         return 'session_' + Math.random().toString(36).substring(2, 15);
       }
       
-      // STEP 1: Create a port connection to the service worker
+      // Create a port connection to the service worker
       createPort() {
         const chromePort = chrome.runtime.connect(this.extensionId, {
           name: this.sessionId
@@ -66,10 +57,18 @@
           console.log("Port disconnected, reconnecting...");
           this.port = this.createPort();
         });
-        // STEP 2: Service worker should receive message .....
+        
         // Handle messages from service worker
         chromePort.onMessage.addListener((message) => {
           console.log("Received message from service worker:", message);
+          
+          if (message.kind === "getCompletions") {
+            const resolve = this.promiseMap.get(message.requestId);
+            if (resolve) {
+              resolve(message.response);
+              this.promiseMap.delete(message.requestId);
+            }
+          }
         });
         
         return chromePort;
@@ -84,6 +83,52 @@
         };
         console.log("Sending test message to service worker");
         this.port.postMessage(message);
+      }
+      
+      // Send a completion request to the service worker
+      async getCompletions(completionRequest) {
+        const currentRequestId = ++this.requestId;
+        
+        // Create promise to handle async response
+        const responsePromise = new Promise(resolve => {
+          this.promiseMap.set(currentRequestId, resolve);
+        });
+        
+        // Create message to service worker
+        const message = {
+          kind: "getCompletions",
+          requestId: currentRequestId,
+          request: completionRequest
+        };
+        
+        // Send message through Chrome port
+        this.port.postMessage(message);
+        return responsePromise;
+      }
+      
+      // Notify service worker that a completion was accepted
+      acceptedCompletion(completionId) {
+        const message = {
+          kind: "acceptCompletion",
+          completionId: completionId
+        };
+        this.port.postMessage(message);
+      }
+    }
+
+    // Class that integrates with the Monaco editor
+    class MonacoCompletionProvider {
+      constructor(extensionId) {
+        this.client = new CompletionServiceClient(extensionId);
+        
+        // Detect which platform we're on
+        this.editorPlatform = EditorPlatform.UNSPECIFIED;
+        if (/https:\/\/colab.research\.google\.com\/.*/.test(window.location.href)) {
+          this.editorPlatform = EditorPlatform.COLAB;
+        }
+        
+        // Send test messages
+        this.client.sendTestMessage("foo");        
       }
       
       // Provide inline completions for the editor
@@ -115,12 +160,8 @@
         return { items: [] };
       }
       
-      freeInlineCompletions() {
-        // can I just do this?
-        console.log("Freeing inline completions");
-        return;
-        // yes i can!
-      } 
+      freeInlineCompletions() {}
+  
       // Called when an editor is added
       addEditor(editor) {
         // Enable inline suggestions
@@ -134,11 +175,10 @@
       // Called when a completion is accepted
       async acceptedCompletion(completionId) {
         console.log(`Completion accepted: ${completionId}`);
+        await this.client.acceptedCompletion(completionId);
       }
     }
 
-    // Class that provides Comple
-  
     // Patch the Monaco environment to add our ghost text provider
     // see setupMonacoEnvironment in script-learn
     Object.defineProperties(window, {
@@ -183,4 +223,3 @@
       }
     });
   })();
-

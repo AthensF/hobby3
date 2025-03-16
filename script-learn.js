@@ -23,35 +23,7 @@
             this.extensionId = extensionId;
             this.port = this.createPort();
         }
-        createPort() {
-            const chromePort = chrome.runtime.connect(this.extensionId, {
-                name: this.sessionId
-            });
-            // Handle port reconnection
-            return chromePort.onDisconnect.addListener((() => {
-                this.port = this.createPort()
-            })), 
-            // Handle responses
-            chromePort.onMessage.addListener((async message => {
-                if ("getCompletions" === message.kind) {
-                    let completionResponse;
-                    void 0 !== message.response && (completionResponse = CompletionResponse.fromJsonString(message.response)), this.promiseMap.get(message.requestId)?.(completionResponse), this.promiseMap.delete(message.requestId)
-                }
-            })), chromePort
-        }
-        getMetadata(ideInfo) {
-            return new MetadataRequest({
-                ideName: ideInfo.ideName,
-                ideVersion: ideInfo.ideVersion,
-                extensionName: "chrome",
-                extensionVersion: "1.26.3",
-                locale: navigator.language,
-                sessionId: this.sessionId,
-                requestId: BigInt(++this.requestId),
-                userAgent: navigator.userAgent,
-                url: window.location.href
-            })
-        }
+        // Step 1 - Send request to Chrome Extension
         async getCompletions(completionRequest) {
             // Get request ID
             const currentRequestId = Number(completionRequest.metadata?.requestId),
@@ -67,6 +39,42 @@
                 };
             return this.port.postMessage(message), responsePromise //send message through Chrome port
         }
+        
+        createPort() {
+            const chromePort = chrome.runtime.connect(this.extensionId, {
+                name: this.sessionId
+            });
+            
+            // Handle port reconnection
+            chromePort.onDisconnect.addListener(() => {
+                this.port = this.createPort();
+            });
+            
+            // Step 2 - Handle responses
+            chromePort.onMessage.addListener(async message => {
+                if ("getCompletions" === message.kind) {
+                    let completionResponse = undefined;
+                    
+                    // Parse the response if it exists
+                    if (message.response !== undefined) {
+                        completionResponse = CompletionResponse.fromJsonString(message.response);
+                    }
+                    
+                    // Get the promise resolver for this request and call it if it exists
+                    const promiseResolver = this.promiseMap.get(message.requestId);
+                    if (promiseResolver) {
+                        promiseResolver(completionResponse);
+                    }
+                    
+                    // Clean up the promise map
+                    this.promiseMap.delete(message.requestId);
+                }
+            });
+            
+            return chromePort;
+        }
+
+        
         acceptedLastCompletion(ideInfo, completionId) {
             const message = {
                 kind: "acceptCompletion",
@@ -76,6 +84,19 @@
                 }).toJsonString()
             };
             this.port.postMessage(message)
+        }
+        getMetadata(ideInfo) {
+            return new MetadataRequest({
+                ideName: ideInfo.ideName,
+                ideVersion: ideInfo.ideVersion,
+                extensionName: "chrome",
+                extensionVersion: "1.26.3",
+                locale: navigator.language,
+                sessionId: this.sessionId,
+                requestId: BigInt(++this.requestId),
+                userAgent: navigator.userAgent,
+                url: window.location.href
+            })
         }
     }
     class TextRange {
@@ -115,6 +136,101 @@
             this.monacoSite = monacoSite, 
             this.client = new CompletionServiceClient(extensionId), 
             this.debounceMs = debounceMs
+        }
+        async provideInlineCompletions(editor, cursorPosition) { 
+            // editor is monaco editor
+            // insert easter egg:
+            const currentText = editor.getValue();
+            if (currentText.startsWith("My cat is")) {
+                // Return custom completion
+                const startPos = editor.getPositionAt(currentText.length);
+                const endPos = startPos;
+                return {
+                    items: [{
+                        insertText: " a madhouse, from mee mee",
+                        text: " a madhouse, from Atheus",
+                        range: new TextRange(startPos, endPos),
+                        command: {
+                            id: "codeium.acceptCompletion",
+                            title: "Accept Completion",
+                            arguments: ["easter-egg-completion", undefined]
+                        }
+                    }]
+                };
+            }
+            // end easter egg:       
+            
+            // 1. Get text context and cursor position
+              const {
+                  text: documentText,
+                  utf8ByteOffset: byteOffset,
+                  additionalUtf8ByteOffset: additionalOffset
+              } = this.computeTextAndOffsets(editor, cursorPosition),
+              // 2. Create completion request
+     
+              totalByteOffset = additionalOffset + byteOffset,
+              completionRequest = new Pu({
+                  metadata: this.client.getMetadata(this.getIdeInfo()),
+                  document: {
+                      text: documentText,
+                      editorLanguage: getLanguageId(editor),
+                      language: oE(getLanguageId(editor)),
+                      cursorOffset: BigInt(totalByteOffset),
+                      lineEnding: "\n",
+                      absoluteUri: "file:///" + this.absolutePath(editor)
+                  },
+                  editorOptions: {
+                      tabSize: BigInt(editor.getOptions().tabSize),
+                      insertSpaces: editor.getOptions().insertSpaces
+                  }
+              });
+              
+            // 3.  Wait for debounce
+              var o;
+              await (o = this.debounceMs ?? 0, new Promise((e => setTimeout(e, o))));
+            // 4. Get completions from server
+              const completionResponse = await this.client.getCompletions(completionRequest);
+              if (void 0 === completionResponse) return;
+            // 5. Transform completions into Monaco format  
+              const monacoCompletions = completionResponse.completionItems.map((completionItem => function(monacoSite, completionItem, editor, offset, editorInstance) {
+                  if (!completionItem.completion || !completionItem.range) return;
+                //   position of ghost text
+                  const {
+                      value: textValue,
+                      utf16Offset: utf160offset
+                  } = getEncodedEditorContent(monacoSite, editor), 
+                  startPosition = editor.getPositionAt(utf160offset + calculateTextWidth(textValue, Number(completionItem.range.startOffset) - offset)), 
+                  endPosition = editor.getPositionAt(utf160offset + calculateTextWidth(textValue, Number(completionItem.range.endOffset) - offset)), 
+                  completionRange = new TextRange(startPosition, endPosition);
+                  //   handle completion text and any suffix
+                  let postCompletionCallback, completionText = completionItem.completion.text;
+                  if (editorInstance && completionItem.suffix && completionItem.suffix.text.length > 0) {
+                      completionText += completionItem.suffix.text;
+                      const cursorOffset = Number(completionItem.suffix.deltaCursorOffset);
+                      postCompletionCallback = () => {
+                          const selection = editorInstance.getSelection();
+                          if (null === selection) return void console.warn("Unexpected, no selection");
+                          const newCursorPosition = editor.getPositionAt(editor.getOffsetAt(selection.getPosition()) + cursorOffset);
+                          editorInstance.setSelection(new TextRange(newCursorPosition, newCursorPosition)), editorInstance._commandService.executeCommand("editor.action.inlineSuggest.trigger")
+                      }
+                  }
+                  // return in Monaco format
+                  return {
+                      insertText: completionText,
+                      text: completionText,
+                      range: completionRange,
+                      command: {
+                          id: "codeium.acceptCompletion",
+                          title: "Accept Completion",
+                          arguments: [completionItem.completion.completionId, postCompletionCallback]
+                      }
+                  }
+              }(this.monacoSite, completionItem, editor, additionalOffset, this.modelUriToEditor.get(editor.uri.toString())))).filter((e => void 0 !== e));
+              return chrome.runtime.sendMessage(this.extensionId, {
+                  type: "success"
+              }), {
+                  items: monacoCompletions
+              }
         }
         getIdeInfo() {
             return void 0 !== window.colab ? {
@@ -222,120 +338,7 @@
                 getLanguage: e => oE(getLanguageId(e))
             })
         }
-        async provideInlineCompletions(editor, cursorPosition) { 
-          // editor is monaco editor
-          // insert easter egg:
-          const currentText = editor.getValue();
-          if (currentText.startsWith("My cat is")) {
-              // Return custom completion
-              const startPos = editor.getPositionAt(currentText.length);
-              const endPos = startPos;
-              return {
-                  items: [{
-                      insertText: " a madhouse, from mee mee",
-                      text: " a madhouse, from Atheus",
-                      range: new TextRange(startPos, endPos),
-                      command: {
-                          id: "codeium.acceptCompletion",
-                          title: "Accept Completion",
-                          arguments: ["easter-egg-completion", undefined]
-                      }
-                  }]
-              };
-          }
-          // end easter egg:       
-          // fluffy replacement
-          if (currentText.startsWith("Fluffy has g")) {
-              // Return custom completion
-              const startPos = editor.getPositionAt(currentText.length);
-              const endPos = startPos;
-              return {
-                  items: [{
-                      insertText: "under development",
-                      text: "under development",
-                      range: new TextRange(startPos, endPos),
-                      command: {
-                          id: "codeium.acceptCompletion",
-                          title: "Accept Completion",
-                          arguments: ["easter-egg-completion", undefined]
-                      }
-                  }]
-              };
-          }
-          // end easter egg:   
-          
-          // 1. Get text context and cursor position
-            const {
-                text: documentText,
-                utf8ByteOffset: byteOffset,
-                additionalUtf8ByteOffset: additionalOffset
-            } = this.computeTextAndOffsets(editor, cursorPosition),
-            // 2. Create completion request
-   
-            totalByteOffset = additionalOffset + byteOffset,
-            completionRequest = new Pu({
-                metadata: this.client.getMetadata(this.getIdeInfo()),
-                document: {
-                    text: documentText,
-                    editorLanguage: getLanguageId(editor),
-                    language: oE(getLanguageId(editor)),
-                    cursorOffset: BigInt(totalByteOffset),
-                    lineEnding: "\n",
-                    absoluteUri: "file:///" + this.absolutePath(editor)
-                },
-                editorOptions: {
-                    tabSize: BigInt(editor.getOptions().tabSize),
-                    insertSpaces: editor.getOptions().insertSpaces
-                }
-            });
-            
-          // 3.  Wait for debounce
-            var o;
-            await (o = this.debounceMs ?? 0, new Promise((e => setTimeout(e, o))));
-          // 4. Get completions from server
-            const completionResponse = await this.client.getCompletions(completionRequest);
-            if (void 0 === completionResponse) return;
-          // 5. Transform completions into Monaco format  
-            const monacoCompletions = completionResponse.completionItems.map((completionItem => function(monacoSite, completionItem, editor, offset, editorInstance) {
-                if (!completionItem.completion || !completionItem.range) return;
-              //   position of ghost text
-                const {
-                    value: textValue,
-                    utf16Offset: utf160offset
-                } = getEncodedEditorContent(monacoSite, editor), 
-                startPosition = editor.getPositionAt(utf160offset + calculateTextWidth(textValue, Number(completionItem.range.startOffset) - offset)), 
-                endPosition = editor.getPositionAt(utf160offset + calculateTextWidth(textValue, Number(completionItem.range.endOffset) - offset)), 
-                completionRange = new TextRange(startPosition, endPosition);
-                //   handle completion text and any suffix
-                let postCompletionCallback, completionText = completionItem.completion.text;
-                if (editorInstance && completionItem.suffix && completionItem.suffix.text.length > 0) {
-                    completionText += completionItem.suffix.text;
-                    const cursorOffset = Number(completionItem.suffix.deltaCursorOffset);
-                    postCompletionCallback = () => {
-                        const selection = editorInstance.getSelection();
-                        if (null === selection) return void console.warn("Unexpected, no selection");
-                        const newCursorPosition = editor.getPositionAt(editor.getOffsetAt(selection.getPosition()) + cursorOffset);
-                        editorInstance.setSelection(new TextRange(newCursorPosition, newCursorPosition)), editorInstance._commandService.executeCommand("editor.action.inlineSuggest.trigger")
-                    }
-                }
-                // return in Monaco format
-                return {
-                    insertText: completionText,
-                    text: completionText,
-                    range: completionRange,
-                    command: {
-                        id: "codeium.acceptCompletion",
-                        title: "Accept Completion",
-                        arguments: [completionItem.completion.completionId, postCompletionCallback]
-                    }
-                }
-            }(this.monacoSite, completionItem, editor, additionalOffset, this.modelUriToEditor.get(editor.uri.toString())))).filter((e => void 0 !== e));
-            return chrome.runtime.sendMessage(this.extensionId, {
-                type: "success"
-            }), {
-                items: monacoCompletions
-            }
-        }
+        
       //   
         handleItemDidShow() {}
         freeInlineCompletions() {}
@@ -385,7 +388,7 @@
             [/https:\/\/(.*\.)?(databricks\.com|azuredatabricks\.net)\/.*/, EditorPlatform.DATABRICKS],
             [/https:\/\/(.*\.)?quadratichq\.com\/.*/, EditorPlatform.QUADRATIC]
         ]),
-        setupMonacoEnvironment = e => Object.defineProperties(window, {
+        setupMonacoEnvironment = debounceMs => Object.defineProperties(window, {
             MonacoEnvironment: {
                 get() {
                     return void 0 === this._codeium_MonacoEnvironment && (this._codeium_MonacoEnvironment = {
@@ -401,13 +404,13 @@
                     return this._ghostText_monaco
                 },
                 set(monacoInstance) {
-                    let n = EditorPlatform.CUSTOM;
+                    let monacoSite = EditorPlatform.CUSTOM;
                     for (const [e, t] of mapUrlToPlatform)
                         if (e.test(window.location.href)) {
-                            n = t;
+                            monacoSite = t;
                             break
-                        } this._ghostText_monaco = monacoInstance;
-                    const ghostTextProvider = new MonacoCompletionProvider(extensionId, n, e);
+                        } this._ghostText_monaco = monacoInstance;  
+                    const ghostTextProvider = new MonacoCompletionProvider(extensionId, monacoSite, debounceMs); // Picks up the user typing in editor
                     monacoInstance?.languages?.registerInlineCompletionsProvider && setTimeout((() => {
                         monacoInstance.languages.registerInlineCompletionsProvider({
                             pattern: "**"

@@ -1,0 +1,22 @@
+I am building a Chrome extension that will provide sentence completion for Monaco editor in Google Colab
+I am new to building Chrome extensions.  I will be learning from two reference files:
+1.  script-learn.js
+2.  serviceWorker-learn.js
+3.  contentScript-learn.js
+4.  manifest-learn.json
+These two reference files are extracted from Codeium's chrome extension, which is designed to provide code completion for Monaco editor in Google Colab.  Note that these are extractions, not the complete files (which has over 30K lines of code!).  I don't believe these reference code work, but they are useful for learning.  These files are also extracted and reversed engineered from minified code.  Viewer discretion is advised!
+
+Having said that, I would like you to heavily rely on any of your suggestions on these reference files, instead of your own knowledge of Chrome extensions.  If in doubt, lean towards these reference files.
+
+I'm doing this in phases:
+1.  Set up communications between the script and service worker 
+2.  Insert a 'easter egg' hard-coded ghost text suggestion
+3.  Add a proper ghost text provider, calling it to OpenAI
+4.  Add a proper ghost text provider, calling it to a fine-tuned OpenAI model
+
+
+I'll be working primarily on:
+1.  script.js
+2.  serviceWorker.js
+3.  contentScript.js
+4.  manifest.json
