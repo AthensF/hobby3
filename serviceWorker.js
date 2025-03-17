@@ -15,6 +15,8 @@
 //     return false;
 // });
 
+importScripts('config.js');
+
 // Store connections from clients
 const connectionClients = new Map();
 
@@ -42,6 +44,7 @@ chrome.runtime.onConnectExternal.addListener((port) => {
     if (message.kind === "getCompletions"){
         console.log("Received getCompletions:", message);
         console.log("completionRequest:", message.request);
+        callOpenAI(message, port);
     }
     
 
@@ -66,5 +69,40 @@ chrome.runtime.onConnectExternal.addListener((port) => {
   });
 });
 
-// Log when the service worker is installed
-console.log("Ghost text service worker installed");
+async function callOpenAI(message, port){
+    try {
+        const apiUrl =  "https://api.openai.com/v1/chat/completions";
+        const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "gpt-3.5-turbo",
+                messages: [{
+                    role: "user",
+                    content: message.request
+                }],
+                temperature: message.temperature || 0.7,
+                max_tokens: message.max_tokens || 1000
+            })
+        })        
+        const data = await response.json()
+        console.log("Server response", data);
+        // Send response to the port
+        port.postMessage({
+            kind: "completionResponse",
+            response: data,
+            requestId: message.requestId
+        })
+
+    } catch (error){
+        console.error("Error calling API", error);
+        port.postMessage({
+            kind: "completionError",
+            error: error.message,
+            requestId: message.requestId
+        });
+    }
+}

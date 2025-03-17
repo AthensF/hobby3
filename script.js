@@ -60,7 +60,6 @@
         
         // Handle messages from service worker
         chromePort.onMessage.addListener((message) => {
-          console.log("Received message from service worker:", message);
           
           if (message.kind === "getCompletions") {
             const resolve = this.promiseMap.get(message.requestId);
