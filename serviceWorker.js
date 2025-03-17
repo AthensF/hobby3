@@ -40,11 +40,34 @@ chrome.runtime.onConnectExternal.addListener((port) => {
   // Listen for messages on this port
   port.onMessage.addListener((message) => {
     // TODO add client, that get from connectClients
-    console.log("Message received on port:", port.name, message);
+    // console.log("Message received on port:", port.name, message);
+
     if (message.kind === "getCompletions"){
-        console.log("Received getCompletions:", message);
-        console.log("completionRequest:", message.request);
-        callOpenAI(message, port);
+        callOpenAI(message, port)
+            .then(completionResponse => {
+                const response = {
+                    kind: "getCompletions", // Note: should match what script.js expects
+                    response: completionResponse,
+                    requestId: message.requestId
+                }
+                console.log("Completion response:", response); // 
+                // firing off a Completion response.  response.choices.0.message.content = 'chase after a pointer and pounce'
+                // Completion response: { kind: 'getCompletions', response: { ... }, requestId: 1n }
+                // response
+                // : 
+                // choices
+                // : 
+                // 0
+                // : 
+                // message
+                // : 
+                // {role: 'assistant', content: 'chase after the laser pointer and pounce on anything that moves.', refusal: null, annotations: Array(0)}
+
+                port.postMessage(response);
+            })
+            .catch(error => {
+                console.error("Error in completion:", error);
+            });
     }
     
 
@@ -72,6 +95,7 @@ chrome.runtime.onConnectExternal.addListener((port) => {
 async function callOpenAI(message, port){
     try {
         const apiUrl =  "https://api.openai.com/v1/chat/completions";
+        const system_prompt = "You are veterinary surgeon scribe. Complete the user's text naturally, providing ONLY the continuation of their sentence. Do not repeat any part of their input. Do not add quotation marks, explanations, or any other text. Just continue the sentence in a natural way.";
         const response = await fetch(apiUrl, {
             method: "POST",
             headers: {
@@ -79,8 +103,11 @@ async function callOpenAI(message, port){
                 "Authorization": `Bearer ${OPENAI_API_KEY}`
             },
             body: JSON.stringify({
-                model: "gpt-3.5-turbo",
+                model: "gpt-4o-mini",
                 messages: [{
+                    role: "system",
+                    content: system_prompt
+                }, {
                     role: "user",
                     content: message.request
                 }],
@@ -91,11 +118,8 @@ async function callOpenAI(message, port){
         const data = await response.json()
         console.log("Server response", data);
         // Send response to the port
-        port.postMessage({
-            kind: "completionResponse",
-            response: data,
-            requestId: message.requestId
-        })
+        return data;
+
 
     } catch (error){
         console.error("Error calling API", error);
@@ -106,3 +130,6 @@ async function callOpenAI(message, port){
         });
     }
 }
+
+
+

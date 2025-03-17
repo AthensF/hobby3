@@ -114,7 +114,7 @@
             completionRequest.modelName = clientSettings.defaultModel ?? "";
             const abortSignal = this.abortController.signal;
             
-            // THIS is where the send happens
+            // This calls getCompletions  scroll down to L270
             const completionResponse = (await this.client)?.getCompletions(completionRequest, {
                 signal: abortSignal,
                 headers: this.getHeaders(completionRequest.metadata?.apiKey)

@@ -64,9 +64,10 @@
           if (message.kind === "getCompletions") {
             const resolve = this.promiseMap.get(message.requestId);
             if (resolve) {
-              resolve(message.response);
+              resolve(message.response); //completionResponse, returned back to Promise requester
               this.promiseMap.delete(message.requestId);
             }
+            console.log("Completion response at CSC:", message.response); // this is coming back
           }
         });
         
@@ -160,8 +161,8 @@
         // getCompletions
         // may need to add object completionRequest TODO
         const completionRequest = currentText;
-        const completionResponse = await this.client.getCompletions(completionRequest)
-        
+        const completionResponse = await this.client.getCompletions(completionRequest) // L219 at learn
+        console.log("Completion response at PIC:", completionResponse);
         // No suggestion for other text
         return { items: [] };
       }
@@ -232,3 +233,6 @@
       }
     });
   })();
+
+
+
