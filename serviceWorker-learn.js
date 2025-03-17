@@ -104,14 +104,17 @@
         async getCompletions(completionRequest) {
             this.abortController?.abort();
             this.abortController = new AbortController;
-            
+
+            // Get user credentials
             const clientSettings = await this.clientSettingsPoller.clientSettings;
             if (void 0 === clientSettings.apiKey || void 0 === completionRequest.metadata) return;
             
+            // Add Auth info to the request
             completionRequest.metadata.apiKey = clientSettings.apiKey;
             completionRequest.modelName = clientSettings.defaultModel ?? "";
             const abortSignal = this.abortController.signal;
             
+            // THIS is where the send happens
             const completionResponse = (await this.client)?.getCompletions(completionRequest, {
                 signal: abortSignal,
                 headers: this.getHeaders(completionRequest.metadata?.apiKey)
@@ -148,9 +151,7 @@
     async function clearLastError() {
         const lastError = await retrieveSyncedData("lastError");
         lastError && 0 !== Object.keys(lastError).length && await setSyncedStorage("lastError", {})
-    }
-    
-    
+    }    
     
     const stateTokens = [];
     
@@ -219,6 +220,7 @@
                         return void 0 === portalUrlData || "" === portalUrlData ? DEFAULT_SERVER_URL : `${portalUrlData.replace(/\/$/,"")}/_route/api_server`
                     }();
                     if (void 0 === apiServerUrl) throw new Error("apiServerUrl is undefined");
+                    
                     const client = y(am, ie({
                             baseUrl: apiServerUrl,
                             useBinaryFormat: !0,

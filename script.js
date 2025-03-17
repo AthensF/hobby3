@@ -75,15 +75,15 @@
       }
       
       // Send a test message to the service worker
-      sendTestMessage(content) {
-        const message = {
-          kind: "test",
-          content: content,
-          sessionId: this.sessionId          
-        };
-        console.log("Sending test message to service worker");
-        this.port.postMessage(message);
-      }
+    //   sendTestMessage(content) {
+    //     const message = {
+    //       kind: "test",
+    //       content: content,
+    //       sessionId: this.sessionId          
+    //     };
+    //     console.log("Sending test message to service worker");
+    //     this.port.postMessage(message);
+    //   }
       
       // Send a completion request to the service worker
       async getCompletions(completionRequest) {
@@ -98,8 +98,9 @@
         const message = {
           kind: "getCompletions",
           requestId: currentRequestId,
-          request: completionRequest
-        };
+          sessionId: this.sessionId,
+          request: typeof completionRequest === 'string' ? completionRequest : completionRequest.toJsonString()
+        };        
         
         // Send message through Chrome port
         this.port.postMessage(message);
@@ -128,7 +129,8 @@
         }
         
         // Send test messages
-        this.client.sendTestMessage("foo");        
+        // this.client.sendTestMessage("foo");
+
       }
       
       // Provide inline completions for the editor
@@ -154,7 +156,12 @@
               }
             }]
           };
-        }
+        }        
+                  
+        // getCompletions
+        // may need to add object completionRequest TODO
+        const completionRequest = currentText;
+        const completionResponse = await this.client.getCompletions(completionRequest)
         
         // No suggestion for other text
         return { items: [] };
@@ -192,6 +199,9 @@
           
           // Create our ghost text provider
           const ghostTextProvider = new MonacoCompletionProvider(extensionId);
+          // Check if the monaco property exists and if it's configurable
+     
+
           
           // Register the provider with Monaco
           if (monacoInstance?.languages?.registerInlineCompletionsProvider) {

@@ -19,26 +19,44 @@
 const connectionClients = new Map();
 
 // Listen for external connections (from script.js)
-chrome.runtime.onConnectExternal.addListener((port) => {
-  console.log("New connection established with session ID:", port.name);
-  
-  // Store the connection
+chrome.runtime.onConnectExternal.addListener((port) => {  
+  // TODO Store the connection, create a LSC for each connection
   connectionClients.set(port.name, port);
+  // TODO add a client, to send the connection to external party like OpenAI
   
+  
+
+
+
+
+
+
+
+
+
+
   // Listen for messages on this port
   port.onMessage.addListener((message) => {
+    // TODO add client, that get from connectClients
     console.log("Message received on port:", port.name, message);
+    if (message.kind === "getCompletions"){
+        console.log("Received getCompletions:", message);
+        console.log("completionRequest:", message.request);
+    }
+    
+
+
     
     // Handle test messages
-    if (message.kind === "test") {
-      console.log("Received foobar:", message.content, " sessionId: ", message.sessionId);
+    // if (message.kind === "test") {
+    //   console.log("Received foobar:", message.content, " sessionId: ", message.sessionId);
       
-      // Send a response back if needed
-      port.postMessage({
-        kind: "test_response",
-        content: "Acknowledging your message: " + message.content + " sessionId: " + message.sessionId
-      });
-    }
+    //   // Send a response back if needed
+    //   port.postMessage({
+    //     kind: "test_response",
+    //     content: "Acknowledging your message: " + message.content + " sessionId: " + message.sessionId
+    //   });
+    // }
   });
   
   // Handle disconnection
