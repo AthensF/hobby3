@@ -50,7 +50,7 @@ chrome.runtime.onConnectExternal.addListener((port) => {
                     response: completionResponse,
                     requestId: message.requestId
                 }
-                console.log("Completion response:", response); // 
+                // console.log("Completion response:", response); // 
                 // firing off a Completion response.  response.choices.0.message.content = 'chase after a pointer and pounce'
                 // Completion response: { kind: 'getCompletions', response: { ... }, requestId: 1n }
                 // response
@@ -95,7 +95,7 @@ chrome.runtime.onConnectExternal.addListener((port) => {
 async function callOpenAI(message, port){
     try {
         const apiUrl =  "https://api.openai.com/v1/chat/completions";
-        const system_prompt = "You are veterinary surgeon scribe. Complete the user's text naturally, providing ONLY the continuation of their sentence. Do not repeat any part of their input. Do not add quotation marks, explanations, or any other text. Just continue the sentence in a natural way.";
+        const system_prompt = "You are veterinary surgeon scribe. Complete the user's text naturally, providing ONLY the continuation of their sentence. Ensure that does not exceed 20 words.  Do not repeat any part of their input. Do not add quotation marks, explanations, or any other text. Just continue the sentence in a natural way.";
         const response = await fetch(apiUrl, {
             method: "POST",
             headers: {
@@ -103,7 +103,7 @@ async function callOpenAI(message, port){
                 "Authorization": `Bearer ${OPENAI_API_KEY}`
             },
             body: JSON.stringify({
-                model: "gpt-4o-mini",
+                model: "ft:gpt-4o-mini-2024-07-18:personal::B4Yni8zt",
                 messages: [{
                     role: "system",
                     content: system_prompt
@@ -116,7 +116,7 @@ async function callOpenAI(message, port){
             })
         })        
         const data = await response.json()
-        console.log("Server response", data);
+        console.log("Server response serviceWorker", data);
         // Send response to the port
         return data;
 

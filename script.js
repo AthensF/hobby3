@@ -67,7 +67,7 @@
               resolve(message.response); //completionResponse, returned back to Promise requester
               this.promiseMap.delete(message.requestId);
             }
-            // console.log("Completion response at CSC:", message.response); // this is coming back
+            console.log("Completion response at CSC:", message.response); // this is coming back
           }
         });
         
@@ -224,7 +224,7 @@
       
       // Called when a completion is accepted
       async acceptedCompletion(completionId) {
-        console.log(`Completion accepted: ${completionId}`);
+        // console.log(`Completion accepted: ${completionId}`);
         await this.client.acceptedCompletion(completionId);
       }
     }
