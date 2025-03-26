@@ -1,8 +1,8 @@
 {
     
     "name": "Hobbs - soap note rerewriter",
-    "version": "0.2",
-    "description": "Get your medical note completions in your favorite PMS system (lolz..).",
+    "version": "0.3",
+    "description": "Make this faster please",
     "manifest_version": 3,
     "background": {
       "service_worker": "serviceWorker.js"

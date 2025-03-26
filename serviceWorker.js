@@ -95,7 +95,7 @@ chrome.runtime.onConnectExternal.addListener((port) => {
 async function callOpenAI(message, port){
     try {
         const apiUrl =  "https://api.openai.com/v1/chat/completions";
-        const system_prompt = "You are veterinary surgeon scribe. Complete the user's text naturally, providing ONLY the continuation of their sentence. Ensure that does not exceed 20 words.  Do not repeat any part of their input. Do not add quotation marks, explanations, or any other text. Just continue the sentence in a natural way.";
+        const system_prompt = "You are veterinary surgeon scribe. Complete the user's text naturally, providing ONLY the continuation of their sentence. Ensure that does not exceed 10 words.  Do not repeat any part of their input. Do not add quotation marks, explanations, or any other text. Just continue the sentence in a natural way.";
         const response = await fetch(apiUrl, {
             method: "POST",
             headers: {
@@ -112,7 +112,8 @@ async function callOpenAI(message, port){
                     content: message.request
                 }],
                 temperature: message.temperature || 0.7,
-                max_tokens: message.max_tokens || 1000
+                // max_tokens: message.max_tokens || 1000
+                max_tokens: 10
             })
         })        
         const data = await response.json()
