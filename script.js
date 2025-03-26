@@ -138,33 +138,23 @@
         // Get the current text in the editor
         const currentText = editor.getValue();
         
-        // Check if the text matches our trigger phrase
-        if (currentText.startsWith("My cat is")) {
-          // Return our hardcoded ghost text suggestion
-          const startPos = editor.getPositionAt(currentText.length);
-          const endPos = startPos;
-          
-          return {
-            items: [{
-              insertText: " a madhouse",
-              text: " a madhouse",
-              range: new TextRange(startPos, endPos),
-              command: {
-                id: "ghostText.acceptCompletion",
-                title: "Accept Completion",
-                arguments: ["hardcoded-completion", undefined]
-              }
-            }]
-          };
-        }        
+        // Check if we have a hardcoded completion
+        if (window.provideHardcodedCompletion) {
+          const hardcodedCompletion = window.provideHardcodedCompletion(currentText, editor);
+          if (hardcodedCompletion) {
+            return hardcodedCompletion;
+          }
+        }    
                   
         // Create a simple completion request with the current text
+        console.log('🤖 No hardcoded completion found, falling back to OpenAI...');
         const completionRequest = currentText;
         const completionResponse = await this.client.getCompletions(completionRequest);
         console.log("Completion response at PIC:", completionResponse);
         
         // If no completion response, return empty items
         if (!completionResponse) {
+          console.log('❌ No completion response from OpenAI');
           return { items: [] };
         }
         
