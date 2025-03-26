@@ -1,13 +1,30 @@
 // Content script for Simple Colab Ghost Text extension
 // This script injects the main script.js into the page
+// Content script for Simple Colab Ghost Text extension
+// This script injects the main script.js into the page
 
 (() => {
   "use strict";
   if ("text/html" === document.contentType) {
-    const script = document.createElement("script");
-    script.src = chrome.runtime.getURL("script.js?") + new URLSearchParams({ id: chrome.runtime.id }), // gets URL of script.js file in the extension + concat parameter of extensionId
-    script.onload = function(){ this.remove() }, // cleans itself after it has finished loading, on loading
-    (document.head || document.documentElement ).prepend(script)    // inserts the new script element at the beginnin of the document head or root.  This ensures that this runs before other scripts
+    // Get URLs for resources
+    const hardcodedScriptUrl = chrome.runtime.getURL("hardcodedCompletions.js");
+    const mainScriptUrl = chrome.runtime.getURL("script.js");
+    
+    // First inject hardcodedCompletions.js
+    const hardcodedScript = document.createElement("script");
+    hardcodedScript.src = hardcodedScriptUrl + "?" + new URLSearchParams({ 
+      id: chrome.runtime.id
+    });
+    hardcodedScript.onload = function() { 
+      // After hardcodedCompletions.js is loaded, inject script.js
+      const mainScript = document.createElement("script");
+      mainScript.src = mainScriptUrl + "?" + new URLSearchParams({ id: chrome.runtime.id });
+      mainScript.onload = function() { this.remove() };
+      (document.head || document.documentElement).prepend(mainScript);
+      
+      // Remove the hardcoded script element
+      this.remove();
+    };
+    (document.head || document.documentElement).prepend(hardcodedScript);
   }
 })();
-

@@ -1,6 +1,6 @@
 {
     
-    "name": "Hobbs - soap note rerewriter",
+    "name": "Hobbs3 - soap note rerewriter",
     "version": "0.3",
     "description": "Make this faster please",
     "manifest_version": 3,
@@ -18,7 +18,7 @@
     ],
     "web_accessible_resources": [
       {
-        "resources": ["script.js"],
+        "resources": ["script.js", "hardcodedCompletions.js", "evals.csv"],
         "matches": ["<all_urls>"]
       }
     ],
