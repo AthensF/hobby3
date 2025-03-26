@@ -13,6 +13,7 @@
   
   // Google Sheets URL (published as CSV)
   // Format: https://docs.google.com/spreadsheets/d/[SHEET_ID]/export?format=csv
+  // https://docs.google.com/spreadsheets/d/1ys8qYpzYnLUNk744AYGj4e46H3v-mefvuDRsClxI2Js/edit?gid=0#gid=0
   const sheetId = '1ys8qYpzYnLUNk744AYGj4e46H3v-mefvuDRsClxI2Js';
   const sheetsUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
   
