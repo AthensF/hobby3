@@ -67,7 +67,7 @@
               resolve(message.response); //completionResponse, returned back to Promise requester
               this.promiseMap.delete(message.requestId);
             }
-            console.log("Completion response at CSC:", message.response); // this is coming back
+            // console.log("Completion response at CSC:", message.response); // this is coming back
           }
         });
         
@@ -150,7 +150,9 @@
         console.log('🤖 No hardcoded completion found, falling back to OpenAI...');
         const completionRequest = currentText;
         const completionResponse = await this.client.getCompletions(completionRequest);
-        console.log("Completion response at PIC:", completionResponse);
+        console.log("Response Object at PIC:", completionResponse);
+        console.log("Response Message at PIC:", completionResponse.choices[0].message.content);
+
         
         // If no completion response, return empty items
         if (!completionResponse) {
@@ -170,6 +172,10 @@
             
             // Extract the completion text from the OpenAI response
             completionText = completionResponse.choices[0].message.content;
+            // TODO REGEX out the text after ANSWER:
+            // Extract only the text after "ANSWER:"
+            const answerMatch = completionText.match(/ANSWER:\s*([\s\S]*?)$/);
+            completionText = answerMatch ? answerMatch[1].trim() : completionText;
             console.log("Extracted completion text:", completionText);
             
             // Get the current cursor position
