@@ -149,6 +149,7 @@
         // Create a simple completion request with the current text
         console.log('🤖 No hardcoded completion found, falling back to OpenAI...');
         const completionRequest = currentText;
+        // const completionResponse = "";
         const completionResponse = await this.client.getCompletions(completionRequest);
         console.log("Response Object at PIC:", completionResponse);
         console.log("Response Message at PIC:", completionResponse.choices[0].message.content);
@@ -172,7 +173,6 @@
             
             // Extract the completion text from the OpenAI response
             completionText = completionResponse.choices[0].message.content;
-            // TODO REGEX out the text after ANSWER:
             // Extract only the text after "ANSWER:"
             const answerMatch = completionText.match(/ANSWER:\s*([\s\S]*?)$/);
             completionText = answerMatch ? answerMatch[1].trim() : completionText;

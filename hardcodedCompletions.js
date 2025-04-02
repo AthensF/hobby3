@@ -10,6 +10,9 @@
   
   // Store for our completions data
   let completionsData = [];
+
+//   resources
+// https://www.vettechprep.com/_pps/SILUCDYLFWLVIR199046.PDF
   
   // Google Sheets URL (published as CSV)
   // Format: https://docs.google.com/spreadsheets/d/[SHEET_ID]/export?format=csv
